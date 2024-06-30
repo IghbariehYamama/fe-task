@@ -10,17 +10,17 @@ Currently, two official plugins are available:
 
 ## Project Setup
 
-1.**Install Dependencies:**
+1. **Install Dependencies:**
 
    npm install
 
 
-2.**Install Material-UI:**
+2. **Install Material-UI:**
 
    npm install @mui/material @emotion/react @emotion/styled
    
 
-3.**Run the Development Server:**
+3. **Run the Development Server:**
 
    npm run dev
 
