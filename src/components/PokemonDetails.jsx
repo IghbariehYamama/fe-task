@@ -7,6 +7,7 @@ import {getPokemonDetailsByURL} from "../services/pokemon.service.js";
 import {Chip, Grid, Typography} from "@mui/material";
 import {addFavorite, isFavorite} from "../services/favorites.service.js";
 import {FavoritesContext} from "../App.jsx";
+import {addPokemonToMovie} from "../services/addToMovie.js";
 
 // Styles for Modal and its contents
 const style = {
@@ -47,15 +48,17 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
   // State hooks for managing modal open state and catch attempt status
   const [open, setOpen] = useState(false);
   const [attemptFailed, setAttemptFailed] = useState(false);
-
+  const [isLoading, setIsLoading] = useState(false);
   const { setFavourites } = useContext(FavoritesContext);
 
+  // when catch is clicked, disable button. if try again, enable it
   // Asynchronous function simulating catching a Pokemon with 50% success probability
   const catchPokemon = () => {
     return new Promise((resolve, reject) => {
 
       // 50% chance of success
       const success = Math.random() > 0.5;
+
       setTimeout(() => {
 
         // Resolve promise if catch is successful
@@ -67,6 +70,7 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
         else {
           reject();
         }
+
       }, 1000); // Simulated delay of 1 second
     });
   };
@@ -74,6 +78,8 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
 
   // Function to handle catching Pokemon
   const handleCatch = async () => {
+    setIsLoading(true);
+
     try {
 
       // Attempt to catch Pokemon
@@ -105,6 +111,8 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
       // Set attempt failure flag if catch attempt fails
       setAttemptFailed(true);
     }
+
+    setIsLoading(false);
   };
 
 
@@ -118,7 +126,7 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
       <React.Fragment>
         {/* Button text changes based on catch attempt success */}
         { pokemon ?
-            <Button disabled={isCaught} onClick={handleCatch}>
+            <Button disabled={isCaught || isLoading} onClick={handleCatch}>
               {attemptFailed ? "Try Again" : "Catch Pokemon"}
             </Button>
             : <></>
@@ -143,6 +151,51 @@ function ChildModal({ setIsCaught, isCaught, pokemon, pokemonUrl }) {
 
 
 function PokemonDetails({ pokemonUrl, openParentModal, setOpenParentModal }) {
+
+  // Add to movie function, using Web Worker
+  // (works fine, but when clicking the "add to movie" button it is not disabled when viewing the details from the favourites' sidebar)
+  const [addedToMovie, setAddedToMovie] = useState(false);
+  const [addToMovieIsLoading, setAddToMovieIsLoading] = useState(false);
+
+  const handleAddToMovieClick = () => {
+    // setting loading = true before calling the async function - just like what we've done in the job interview
+    setAddToMovieIsLoading(true);
+    try {
+        // Create a new worker
+        const worker = new Worker(new URL('../services/worker.js', import.meta.url));
+
+        // Handle messages from the worker,
+        // happens after finishing executing our addPokemonToMovie function
+        worker.onmessage = (event) => {
+        const isAdded = event.data;
+        setAddedToMovie(isAdded ? true : false);
+
+        // Inform the user about the results
+        alert(isAdded ? `The Pokemon ${pokemon.name} Has Been Added To Movie Successfully!` : `Failed To Add The Pokemon ${pokemon.name} To Movie`);
+
+        // Terminate the worker
+        worker.terminate();
+
+        // setting loading = false after finishing
+        setAddToMovieIsLoading(false);
+      };
+
+      // Send data to the worker
+      worker.postMessage({
+        scriptURL: new URL('../services/addToMovie.js', import.meta.url).href,
+        func: addPokemonToMovie.name,
+        args: [pokemon.name]
+      });
+    }
+
+    catch (err){
+        console.log(err);
+        // if there is an error, set loading = false
+        setAddToMovieIsLoading(false);
+    }
+
+  }
+
 
   // State hooks for managing Pokemon data and caught status
   const [pokemon, setPokemon] = useState(null);
@@ -246,6 +299,9 @@ function PokemonDetails({ pokemonUrl, openParentModal, setOpenParentModal }) {
             <Box sx={buttonContainerStyle}>
               <Button onClick={handleClose}>Back To The List</Button>
               <ChildModal isCaught={isCaught} setIsCaught={setIsCaught} pokemon = { pokemon } pokemonUrl={ pokemonUrl }/>
+              <Button onClick={handleAddToMovieClick} disabled={addedToMovie || addToMovieIsLoading}>
+                { addToMovieIsLoading ? "In The Process Of Adding Pokemon To Movie.." : addedToMovie ? "Pokemon Added To Movie!" : "Add Pokemon To Movie" }
+              </Button>
             </Box>
           </Box>
         </Modal>
